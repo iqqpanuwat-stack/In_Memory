@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>รูปแบบการจัดเก็บข้อมูลแบบ In-Memory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0b2a6f;--navy-d:#071b4a;--blue:#1d5fd8;--sky:#dbeafe;--sky2:#eff6ff;--bg:#ffffff;--surface:#f4f8ff;--text:#0f1f3d;--muted:#51617f;--line:#d3e0f5;--on-navy:#ffffff;
+color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--navy:#0a1f55;--navy-d:#050f2c;--blue:#6aa6ff;--sky:#16305f;--sky2:#0f2147;--bg:#0a1430;--surface:#0f1d42;--text:#e8efff;--muted:#a3b3d6;--line:#233a6b;color-scheme:dark}}
+:root[data-theme="dark"]{--navy:#0a1f55;--navy-d:#050f2c;--blue:#6aa6ff;--sky:#16305f;--sky2:#0f2147;--bg:#0a1430;--surface:#0f1d42;--text:#e8efff;--muted:#a3b3d6;--line:#233a6b;color-scheme:dark}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.75 "Sarabun","Noto Sans Thai",Tahoma,sans-serif}
+h1,h2,h3{font-family:"Prompt","Noto Sans Thai",Tahoma,sans-serif;line-height:1.3;margin:0 0 .5em}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--navy-d);color:#fff}
+nav .wrap{display:flex;align-items:center;gap:6px;overflow-x:auto;height:54px;white-space:nowrap}
+nav b{font-family:Prompt,sans-serif;margin-right:auto;padding-right:16px}
+nav a{text-decoration:none;font-size:15px;padding:6px 12px;border-radius:8px;color:#cfe0ff}
+nav a:hover{background:#ffffff22;color:#fff}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--navy-d);z-index:30}
+.hero{background:linear-gradient(135deg,var(--navy-d),var(--navy) 60%,#16409a);color:var(--on-navy);padding:72px 0 80px}
+.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+.hero h1{font-size:clamp(34px,5.4vw,58px);font-weight:700}
+.hero p{color:#cfe0ff;max-width:34em;font-size:18px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.tags span{background:#ffffff1c;border:1px solid #ffffff33;border-radius:99px;padding:3px 14px;font-size:15px;color:#e6f0ff}
+.btn{display:inline-block;margin-top:26px;background:#fff;color:var(--navy);font-weight:700;padding:11px 26px;border-radius:10px;text-decoration:none;font-family:Prompt,sans-serif}
+.btn:hover{background:var(--sky)}
+.lat{background:#ffffff12;border:1px solid #ffffff2b;border-radius:16px;padding:22px}
+.lat h3{font-size:17px;color:#cfe0ff;font-weight:500}
+.bar{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;margin:12px 0;font-size:14px;color:#e6f0ff}
+.bar i{display:block;height:20px;border-radius:5px;background:#7fb2ff;min-width:6px;position:relative}
+.bar i em{position:absolute;left:calc(100% + 8px);top:-2px;font-style:normal;white-space:nowrap}
+.lat small{color:#a9c2f0;display:block;margin-top:14px;line-height:1.5}
+section{padding:68px 0}
+section:nth-of-type(even){background:var(--surface)}
+.kick{color:var(--blue);font-weight:700;font-size:15px;margin-bottom:6px}
+h2{font-size:clamp(26px,3.6vw,36px);color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) h2{color:#fff}}
+.lead{color:var(--muted);max-width:44em;margin-bottom:30px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:22px}
+section:nth-of-type(even) .card{background:var(--bg)}
+.card h3{font-size:19px;color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .card h3{color:#bcd5ff}}
+.card p{margin:0;color:var(--muted)}
+.card.key{background:var(--navy);border-color:var(--navy)}
+.card.key h3,.card.key p{color:#fff}
+.card.key p{color:#cfe0ff}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.tabs button{font:600 15px Prompt,sans-serif;padding:9px 18px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.panel{background:var(--bg);border:1px solid var(--line);border-left:6px solid var(--navy);border-radius:14px;padding:26px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.panel[hidden]{display:none}
+.panel h3{font-size:22px;color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .panel h3{color:#fff}}
+.panel ul{margin:.4em 0 0;padding-left:1.2em;color:var(--muted)}
+pre{margin:0;background:var(--navy-d);color:#cfe0ff;border-radius:12px;padding:16px;font:14px/1.6 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto}
+pre b{color:#8fc0ff}
+.demo{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.box{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:22px}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+.row button{font:600 15px Prompt,sans-serif;padding:10px 18px;border-radius:10px;border:0;background:var(--navy);color:#fff;cursor:pointer}
+.row button.alt{background:var(--sky);color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .row button{background:#2f66d8}:root:not([data-theme="light"]) .row button.alt{color:#dbeafe}}
+.row button:hover{filter:brightness(1.12)}
+#log{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto;font-size:15px}
+#log li{padding:8px 12px;border-radius:8px;margin-bottom:6px;background:var(--sky2);border-left:4px solid var(--blue)}
+#log li.miss{border-left-color:#c2410c;background:color-mix(in srgb,#f97316 12%,var(--bg))}
+#log li.hit{border-left-color:#15803d;background:color-mix(in srgb,#22c55e 12%,var(--bg))}
+.stat{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px;font-family:Prompt,sans-serif}
+.stat div{font-size:14px;color:var(--muted)}.stat strong{display:block;font-size:26px;color:var(--navy)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .stat strong{color:#fff}}
+table{width:100%;border-collapse:collapse;background:var(--bg);border-radius:14px;overflow:hidden;font-size:16px}
+.tw{overflow-x:auto;border-radius:14px;border:1px solid var(--line)}
+th{background:var(--navy);color:#fff;text-align:left;padding:12px 16px;font-family:Prompt,sans-serif;font-weight:500}
+td{padding:12px 16px;border-top:1px solid var(--line);vertical-align:top}
+.sum{background:var(--navy);color:#fff;border-radius:18px;padding:34px}
+.sum h2{color:#fff}.sum p{color:#cfe0ff;margin:0}
+footer{background:var(--navy-d);color:#a9c2f0;text-align:center;padding:26px 20px;font-size:15px}
+@media (max-width:820px){.hero .wrap,.panel,.demo{grid-template-columns:1fr}.hero{padding:48px 0 56px}section{padding:48px 0}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<nav><div class="wrap"><b>In-Memory</b><a href="#what">คืออะไร</a><a href="#principles">หลักการ</a><a href="#patterns">รูปแบบ</a><a href="#demo">ทดลอง</a><a href="#highlights">จุดเด่น</a><a href="#limits">ข้อจำกัด</a><a href="#usecases">การนำไปใช้</a></div></nav>
+
+<header class="hero"><div class="wrap">
+<div>
+<h1>รูปแบบการจัดเก็บข้อมูลแบบ In-Memory</h1>
+<p>เก็บและประมวลผลข้อมูลไว้ใน RAM โดยตรง ไม่ต้องรอดิสก์ ทำให้ระบบตอบสนองได้ในระดับไมโครวินาทีถึงมิลลิวินาที</p>
+<div class="tags"><span>อธิบายพร้อมตัวอย่าง</span><span>หลักการสำคัญ</span><span>จุดเด่น</span><span>ข้อจำกัด</span><span>การนำไปใช้</span></div>
+<a class="btn" href="#demo">ลองจำลอง Cache</a>
+</div>
+<div class="lat" aria-label="เปรียบเทียบความเร็วในการเข้าถึงข้อมูล">
+<h3>เวลาเข้าถึงข้อมูลโดยประมาณ (ยิ่งสั้นยิ่งเร็ว)</h3>
+<div class="bar"><span>RAM</span><i style="width:3%"><em>~100 ns</em></i></div>
+<div class="bar"><span>SSD</span><i style="width:30%"><em>~100 µs</em></i></div>
+<div class="bar"><span>HDD</span><i style="width:62%"><em>~10 ms</em></i></div>
+<small>สเกลย่อเพื่อให้มองเห็นได้ ความต่างจริงคือหลายร้อยถึงหลายหมื่นเท่า</small>
+</div>
+</div></header>
+
+<main>
+<section id="what"><div class="wrap">
+<div class="kick">ความหมาย</div>
+<h2>In-Memory คืออะไร</h2>
+<p class="lead">ฐานข้อมูลทั่วไปเก็บข้อมูลบนดิสก์แล้วดึงขึ้นมาอ่านเมื่อต้องใช้ ส่วนแบบ In-Memory จะเก็บข้อมูลชุดที่ใช้งานไว้ใน RAM ตลอดเวลา การอ่านและเขียนจึงไม่ต้องผ่านการหมุนหัวอ่านหรือคิว I/O ของดิสก์</p>
+<div class="grid">
+<div class="card key"><h3>แนวคิดหลัก</h3><p>ย้ายข้อมูลที่ถูกเรียกบ่อยมาไว้ใกล้ CPU ที่สุด เพื่อลดเวลารอ</p></div>
+<div class="card"><h3>ตัวอย่างเครื่องมือ</h3><p>Redis, Memcached, Hazelcast, Apache Ignite, SAP HANA และ SQLite แบบ :memory:</p></div>
+<div class="card"><h3>ตัวอย่างในชีวิตจริง</h3><p>หน้าสินค้าขายดีของร้านออนไลน์ที่มีคนเปิดพร้อมกันหลายพันคน ดึงจาก Cache แทนการถามฐานข้อมูลทุกครั้ง</p></div>
+</div>
+</div></section>
+
+<section id="principles"><div class="wrap">
+<div class="kick">หลักการสำคัญ</div>
+<h2>ทำงานอย่างไรเบื้องหลัง</h2>
+<p class="lead">ระบบ In-Memory ส่วนใหญ่ยึดหลักร่วมกัน 4 ข้อ</p>
+<div class="grid">
+<div class="card"><h3>โครงสร้างแบบ Key–Value</h3><p>เข้าถึงข้อมูลด้วยคีย์ผ่าน Hash Table ใช้เวลาคงที่ O(1) เช่น <code>user:42</code> ได้ข้อมูลผู้ใช้ทันที</p></div>
+<div class="card"><h3>TTL และการหมดอายุ</h3><p>ตั้งอายุข้อมูล เช่น 60 วินาที เมื่อครบกำหนดระบบลบเองเพื่อให้ข้อมูลไม่เก่าเกินไป</p></div>
+<div class="card"><h3>Eviction Policy</h3><p>เมื่อ RAM เต็ม ต้องเลือกข้อมูลที่จะทิ้ง เช่น LRU (ไม่ได้ใช้นานที่สุด) หรือ LFU (ใช้น้อยที่สุด)</p></div>
+<div class="card"><h3>Persistence แบบเลือกได้</h3><p>RAM ข้อมูลหายเมื่อไฟดับ จึงมีตัวเลือกทำ Snapshot เป็นช่วง ๆ หรือบันทึก Log ทุกคำสั่ง (AOF) ลงดิสก์</p></div>
+</div>
+</div></section>
+
+<section id="patterns"><div class="wrap">
+<div class="kick">รูปแบบการจัดเก็บ</div>
+<h2>4 รูปแบบที่ใช้บ่อย</h2>
+<p class="lead">เลือกคลิกแต่ละรูปแบบเพื่อดูคำอธิบายและตัวอย่าง</p>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div id="panels"></div>
+</div></section>
+
+<section id="demo"><div class="wrap">
+<div class="kick">ทดลองด้วยตัวเอง</div>
+<h2>จำลอง Cache-Aside</h2>
+<p class="lead">กดอ่านข้อมูลสินค้า ครั้งแรกระบบต้องไปอ่านจาก "ฐานข้อมูล" (ช้า) แล้วเก็บไว้ใน Memory ครั้งต่อไปจะเร็วขึ้นมาก จนกว่า TTL จะหมด</p>
+<div class="demo">
+<div class="box">
+<h3>ควบคุม</h3>
+<div class="row">
+<button id="get">อ่านข้อมูลสินค้า #101</button>
+<button id="clear" class="alt">ล้าง Cache</button>
+</div>
+<label for="ttl">อายุข้อมูล (TTL): <b id="ttlv">10</b> วินาที</label>
+<input id="ttl" type="range" min="3" max="30" value="10" style="width:100%">
+<div class="stat">
+<div><strong id="sh">0</strong>Hit</div>
+<div><strong id="sm">0</strong>Miss</div>
+<div><strong id="ex">–</strong>หมดอายุใน (วิ)</div>
+</div>
+</div>
+<div class="box"><h3>บันทึกการทำงาน</h3><ul id="log"><li>ยังไม่มีการอ่านข้อมูล กดปุ่มทางซ้ายเพื่อเริ่ม</li></ul></div>
+</div>
+</div></section>
+
+<section id="highlights"><div class="wrap">
+<div class="kick">จุดเด่น</div>
+<h2>ทำไมถึงเร็วและน่าใช้</h2>
+<div class="grid" style="margin-top:24px">
+<div class="card key"><h3>เร็วมาก</h3><p>ตอบสนองระดับไมโครวินาที รองรับหลายแสนคำขอต่อวินาทีบนเครื่องเดียว</p></div>
+<div class="card"><h3>ลดภาระฐานข้อมูลหลัก</h3><p>คำขออ่านซ้ำ ๆ ถูกตอบจาก Memory จึงช่วยให้ฐานข้อมูลไม่ล่ม</p></div>
+<div class="card"><h3>โครงสร้างข้อมูลหลากหลาย</h3><p>Redis มี String, List, Set, Sorted Set, Hash เหมาะกับงานอันดับคะแนนและคิว</p></div>
+<div class="card"><h3>ขยายแบบกระจายได้</h3><p>แบ่งข้อมูลเป็น Shard และทำ Replica เพื่อรองรับผู้ใช้จำนวนมาก</p></div>
+</div>
+</div></section>
+
+<section id="limits"><div class="wrap">
+<div class="kick">ข้อจำกัด</div>
+<h2>สิ่งที่ต้องระวัง</h2>
+<p class="lead">In-Memory ไม่ใช่คำตอบของทุกงาน ควรรู้ข้อจำกัดก่อนเลือกใช้</p>
+<div class="tw"><table>
+<thead><tr><th>ข้อจำกัด</th><th>ผลกระทบ</th><th>แนวทางรับมือ</th></tr></thead>
+<tbody>
+<tr><td>RAM ราคาสูงต่อ GB</td><td>เก็บข้อมูลทั้งหมดได้ไม่คุ้ม</td><td>เก็บเฉพาะข้อมูลที่ถูกใช้บ่อย</td></tr>
+<tr><td>ข้อมูลหายเมื่อรีสตาร์ต</td><td>เสี่ยงสูญเสียข้อมูลล่าสุด</td><td>เปิด Snapshot/AOF และทำ Replica</td></tr>
+<tr><td>ข้อมูลไม่ตรงกับฐานข้อมูลหลัก</td><td>ผู้ใช้เห็นข้อมูลเก่า (Stale Data)</td><td>ตั้ง TTL สั้น และลบ Cache เมื่อมีการแก้ไข</td></tr>
+<tr><td>ความจุจำกัดตามเครื่อง</td><td>RAM เต็มแล้วข้อมูลถูกทิ้ง</td><td>กำหนด Eviction Policy และทำ Sharding</td></tr>
+</tbody></table></div>
+</div></section>
+
+<section id="usecases"><div class="wrap">
+<div class="kick">การนำไปใช้</div>
+<h2>ใช้ที่ไหนได้บ้าง</h2>
+<div class="grid" style="margin-top:24px">
+<div class="card"><h3>Session ผู้ใช้</h3><p>เก็บสถานะการล็อกอินเพื่อให้ตรวจสอบได้ทันทีในทุกคำขอ</p></div>
+<div class="card"><h3>Leaderboard เกม</h3><p>ใช้ Sorted Set จัดอันดับคะแนนแบบเรียลไทม์</p></div>
+<div class="card"><h3>Rate Limiting</h3><p>นับจำนวนคำขอต่อ IP ต่อนาทีเพื่อป้องกันการเรียกใช้ถี่เกินไป</p></div>
+<div class="card"><h3>วิเคราะห์ข้อมูลเรียลไทม์</h3><p>ตรวจจับธุรกรรมผิดปกติของธนาคารได้ทันก่อนอนุมัติ</p></div>
+</div>
+<div class="sum" style="margin-top:44px"><h2>สรุป</h2><p>In-Memory แลกค่าใช้จ่ายของ RAM กับความเร็วที่สูงขึ้นหลายเท่า เหมาะกับข้อมูลที่อ่านบ่อยและต้องการความไว แต่ควรออกแบบเรื่อง TTL, Eviction และ Persistence ให้เหมาะกับงาน และใช้ควบคู่กับฐานข้อมูลหลักเสมอ</p></div>
+</div></section>
+</main>
+<footer>เนื้อหาเพื่อการศึกษา: รูปแบบการจัดเก็บข้อมูลแบบ In-Memory</footer>
+
+<script>
+const patterns=[
+{n:"Cache-Aside",d:"แอปตรวจ Cache ก่อน ถ้าไม่พบ (Miss) จึงอ่านจากฐานข้อมูลแล้วเก็บลง Cache เอง เป็นรูปแบบที่พบมากที่สุด",u:["เหมาะกับงานอ่านบ่อยเขียนน้อย","ควบคุมได้เต็มที่ในโค้ดแอป","ครั้งแรกจะช้าเพราะ Miss"],c:"<b>def</b> get_product(id):\n  v = cache.get(id)\n  <b>if</b> v: <b>return</b> v        # Hit\n  v = db.query(id)       # Miss\n  cache.set(id, v, ttl=60)\n  <b>return</b> v"},
+{n:"Read-Through",d:"แอปคุยกับ Cache อย่างเดียว เมื่อ Miss ตัว Cache จะไปดึงจากฐานข้อมูลให้เอง ทำให้โค้ดฝั่งแอปสั้นลง",u:["โค้ดแอปเรียบง่าย","ต้องมี Cache Provider ที่รองรับ","เหมาะกับข้อมูลอ้างอิง เช่น รายการจังหวัด"],c:"v = cache.get(<b>\"province:10\"</b>)\n# Cache โหลดจาก DB เองเมื่อ Miss\n# แอปไม่ต้องรู้จักฐานข้อมูล"},
+{n:"Write-Through",d:"ทุกครั้งที่เขียน ระบบบันทึกลงทั้ง Cache และฐานข้อมูลพร้อมกัน ข้อมูลใน Cache จึงตรงกับฐานข้อมูลเสมอ",u:["ข้อมูลสอดคล้องกันสูง","การเขียนช้าลงเพราะต้องรอทั้งสองที่","เหมาะกับข้อมูลที่ห้ามคลาดเคลื่อน เช่น ยอดคงเหลือ"],c:"<b>def</b> update_balance(id, x):\n  cache.set(id, x)\n  db.update(id, x)   # เขียนทั้งสองที่\n  <b>return</b> <b>True</b>"},
+{n:"Write-Behind",d:"เขียนลง Memory ก่อนแล้วตอบกลับทันที จากนั้นค่อยบันทึกลงฐานข้อมูลเป็นชุดทีหลัง ได้ความเร็วสูงสุดแต่เสี่ยงข้อมูลหาย",u:["เขียนเร็วมาก รวมหลายรายการเป็น Batch ได้","เสี่ยงหากเครื่องดับก่อนบันทึก","เหมาะกับนับยอดวิว ไลก์ หรือ Log"],c:"cache.incr(<b>\"views:post9\"</b>)\n<b>queue</b>.push(\"views:post9\")\n# Worker บันทึกลง DB ทุก 5 วินาที"}
+];
+const tabs=document.getElementById("tabs"),panels=document.getElementById("panels");
+patterns.forEach((p,i)=>{
+ const b=document.createElement("button");b.textContent=p.n;b.setAttribute("role","tab");b.setAttribute("aria-selected",i==0);tabs.appendChild(b);
+ const d=document.createElement("div");d.className="panel";d.hidden=i!=0;d.setAttribute("role","tabpanel");
+ d.innerHTML="<div><h3>"+p.n+"</h3><p>"+p.d+"</p><ul>"+p.u.map(x=>"<li>"+x+"</li>").join("")+"</ul></div><pre>"+p.c+"</pre>";
+ panels.appendChild(d);
+ b.onclick=()=>{[...tabs.children].forEach((t,j)=>{t.setAttribute("aria-selected",j==i);panels.children[j].hidden=j!=i})};
+});
+// Cache-aside simulator
+const cache=new Map();let hits=0,miss=0,timer=null;
+const $=id=>document.getElementById(id);
+const ttl=$("ttl");ttl.oninput=()=>$("ttlv").textContent=ttl.value;
+function add(t,c){const l=$("log");if(l.children.length==1&&!l.firstChild.className)l.innerHTML="";const li=document.createElement("li");li.className=c;li.textContent=t;l.prepend(li)}
+function tick(){const e=cache.get(101);if(!e){$("ex").textContent="–";clearInterval(timer);timer=null;return}
+ const left=Math.ceil((e.exp-Date.now())/1000);
+ if(left<=0){cache.delete(101);$("ex").textContent="–";add("TTL หมดอายุ ข้อมูลถูกลบออกจาก Memory","");clearInterval(timer);timer=null}else $("ex").textContent=left}
+$("get").onclick=async()=>{
+ const e=cache.get(101);
+ if(e&&e.exp>Date.now()){hits++;add("Hit: ได้ข้อมูลจาก Memory ใน ~1 ms","hit")}
+ else{miss++;add("Miss: ไม่พบใน Cache กำลังอ่านจากฐานข้อมูล...","miss");
+  const t=performance.now();await new Promise(r=>setTimeout(r,600));
+  cache.set(101,{exp:Date.now()+ttl.value*1000});
+  add("อ่านจากฐานข้อมูลเสร็จใน ~"+Math.round(performance.now()-t)+" ms แล้วเก็บลง Cache ("+ttl.value+" วินาที)","");
+  if(!timer)timer=setInterval(tick,500)}
+ $("sh").textContent=hits;$("sm").textContent=miss;tick();
+};
+$("clear").onclick=()=>{cache.delete(101);add("ล้าง Cache แล้ว การอ่านครั้งต่อไปจะเป็น Miss","");tick()};
+</script>
+</body>
+</html>
